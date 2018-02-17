@@ -6,6 +6,16 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
+
+//    Parallel.ForEach(t2TreFs, (reff) =>
+//{
+//lock (reff)
+//{
+//csv.Append(this.DoJob(reff));
+//}
+
+//});
 
 namespace ScheduleStockManager.Mechanism
 {
@@ -27,10 +37,13 @@ namespace ScheduleStockManager.Mechanism
                     var headers = $"{"sku"},{"qty"},{"is_in_stock"}";
                     csv.AppendLine(headers);
                     var t2TreFs = QueryDescriptionRefs();
-                    foreach (var reff in t2TreFs)
+                    var dataset = new DataSet();
+                    Parallel.ForEach(t2TreFs, (reff) =>
                     {
-                        csv.Append(this.DoJob(reff));
-                    }
+                        Console.WriteLine("Generating stock for: " + reff);
+                        dataset = this.Connection(reff);
+                        csv.Append(this.DoJob(dataset));
+                    });
                     File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
                 }
                 Thread.Sleep(this.GetRepetitionIntervalTime());
@@ -42,7 +55,9 @@ namespace ScheduleStockManager.Mechanism
             return null;
         }
 
-        public abstract string DoJob(string reff);
+        public abstract string DoJob(DataSet data);
+
+        public abstract DataSet Connection(string reff);
 
         public abstract void DoCleanup();
 

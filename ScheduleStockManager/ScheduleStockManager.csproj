@@ -49,6 +49,7 @@
     <Compile Include="Mechanism\JobManager.cs" />
     <Compile Include="Models\Descriptions.cs" />
     <Compile Include="Models\ExcelMapper.cs" />
+    <Compile Include="Models\SqlQueries.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
