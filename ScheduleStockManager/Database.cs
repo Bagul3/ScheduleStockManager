@@ -120,6 +120,8 @@ namespace StockCSV
 
         public override void DoCleanup()
         {
+            Console.WriteLine($"The Clean Job thread started successfully.");
+            new LogWriter("The Clean Job thread started successfully");
             Console.WriteLine("Clean up: removing exisiting stock.csv");
             if (File.Exists(System.Configuration.ConfigurationManager.AppSettings["OutputPath"]))
             {
@@ -129,27 +131,16 @@ namespace StockCSV
 
         public override DataSet Connection(string reff)
         {
+            var dataset = new DataSet();
             using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
             {
-                var dataset = new DataSet();
-                for (var attempts = 0; attempts < 5; attempts++)
-                {
-                    try
-                    {
-                        var data = new DataSet();
-                        connectionHandler.OpenAsync();
-                        var myAccessCommand = new OleDbCommand(SqlQueries.StockQuery, connectionHandler);
-                        myAccessCommand.Parameters.AddWithValue("?", reff);
-                        var myDataAdapter = new OleDbDataAdapter(myAccessCommand);
-                        myDataAdapter.Fill(data);
-                        break;
-
-                    }
-                    catch { }
-                    Thread.Sleep(50); // Possibly a good idea to pause here, explanation below
-                }
-                return dataset;
+                connectionHandler.OpenAsync();
+                var myAccessCommand = new OleDbCommand(SqlQueries.StockQuery, connectionHandler);
+                myAccessCommand.Parameters.AddWithValue("?", reff);
+                var myDataAdapter = new OleDbDataAdapter(myAccessCommand);
+                myDataAdapter.Fill(dataset);
             }
+            return dataset;
         }
 
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.OleDb;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -27,24 +28,26 @@ namespace ScheduleStockManager.Mechanism
             while (true)
             {
                 var now = DateTime.Now.TimeOfDay;
-
+                var stopwatch = new Stopwatch();
+                stopwatch.Start();
                 if (now > GetStartTime() && now < GetEndTime() && DateTime.Now.DayOfWeek != DayOfWeek.Sunday)
                 {
                     var csv = new StringBuilder();
-                    Console.WriteLine($"The Clean Job thread started successfully.");
-                    new LogWriter("The Clean Job thread started successfully");
                     this.DoCleanup();
                     var headers = $"{"sku"},{"qty"},{"is_in_stock"}";
                     csv.AppendLine(headers);
                     var t2TreFs = QueryDescriptionRefs();
-                    var dataset = new DataSet();
-                    Parallel.ForEach(t2TreFs, (reff) =>
+
+                    foreach (var reff in t2TreFs)
                     {
                         Console.WriteLine("Generating stock for: " + reff);
-                        dataset = this.Connection(reff);
+                        var dataset = this.Connection(reff);
                         csv.Append(this.DoJob(dataset));
-                    });
+                    }
+                        
                     File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
+                    Console.WriteLine(stopwatch.Elapsed);
+                    stopwatch.Stop();
                 }
                 Thread.Sleep(this.GetRepetitionIntervalTime());
             }
