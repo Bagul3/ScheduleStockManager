@@ -2,10 +2,8 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Data.OleDb;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using System.Text;
 using ScheduleStockManager;
 using ScheduleStockManager.Mechanism;
@@ -18,35 +16,14 @@ namespace StockCSV
         private readonly LogWriter _logger = new LogWriter();
         private List<string> doneList = new List<string>();
 
-        public void CreateDbfFile(List<string> t2TreFs)
-        {
-            using (var connection = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
-            {
-                connection.Open();
-                var command = connection.CreateCommand();
-
-                command.CommandText = "create table Descriptions(T2TREF int)";
-                command.ExecuteNonQuery();
-                connection.Close();
-            }
-
-            using (var connection = new OleDbConnection())
-            {
-                connection.Open();
-                var command = connection.CreateCommand();
-                foreach (var t2Tref in t2TreFs)
-                {
-                    var sql = "Insert INTO DESCRIPT (T2TREF) VALUES ({0});";
-                    sql = string.Format(sql, String.Format("{0:00000}", t2Tref));
-                    command.CommandText = sql;
-                    command.ExecuteNonQuery();
-                }
-            }
-        }
-
         public override void InsertIntoDescriptions(string sku)
         {
-            Connection(sku, SqlQueries.InsertSKU);
+            var doesSKUExist = Connection(sku, SqlQueries.DoesSKUExist);
+            if (doesSKUExist.Tables[0].Rows.Count == 0)
+            {
+                Console.WriteLine("Adding new SKU to DESC Table: " + sku);
+                Connection(sku, SqlQueries.InsertSKU);
+            }                
         }
 
         public override string DoJob(DataRow dr, DataSet dt)
@@ -59,6 +36,7 @@ namespace StockCSV
                 var actualStock = "0";
                 var inStockFlag = false;
                 var groupSkus = "";
+                var empty = "";
 
                 _logger.LogWrite("Working....");
 
@@ -101,9 +79,12 @@ namespace StockCSV
                             {
                                 eanCode = eanRow["EAN_CODE"].ToString();
                             }
-                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + Convert.ToDateTime(dr["LASTDELV"]).ToString("yyyy/MM/dd") + "\""},{"\"" + RemoveLineEndings(eanCode) + "\""}";
+
+                            var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
+
+                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
                             csv.AppendLine(newLine);
-                            
+
                         }
                         actualStock = "0";
                     }
@@ -114,8 +95,8 @@ namespace StockCSV
                 isStock = inStockFlag ? 1 : 0;
                 if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
                 {
-                    var empty = "";
-                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + Convert.ToDateTime(dr["LASTDELV"]).ToString("yyyy/MM/dd") + "\""},{"\"" + empty + "\""}";
+                    var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
+                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
                     csv.AppendLine(newLine2);
                 }
 
@@ -127,6 +108,26 @@ namespace StockCSV
                 _logger.LogWrite(e.Message + e.StackTrace);
                 throw;
             }
+            finally
+            {
+
+            }
+        }
+
+        private DateTime IncreaseYearIfCurrentSeason(string season, DateTime date)
+        {
+            //if (season.Length != 3 || !season.ToLower().Contains('s') || !season.ToLower().Contains('w'))
+            //    return date;
+
+            //var year = DateTime.Now.Year.ToString().Split(new string[] { "20" }, StringSplitOptions.None)[1];
+            //var seasonYear = season.ToLower().Split('s')[1];
+            //if (year == seasonYear)
+            //    return date.AddYears(1);
+            if(season.ToLower() == System.Configuration.ConfigurationManager.AppSettings["Season"].ToLower())
+            {
+                return date.AddYears(1);
+            }
+            return date;
         }
 
         public override void DoCleanup()
@@ -145,10 +146,43 @@ namespace StockCSV
             var dataset = new DataSet();
             using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
             {
+                connectionHandler.Close();
+                connectionHandler.Open();
+                var myAccessCommand = new OleDbCommand(query, connectionHandler);
+                if (reff != null)
+                {
+                    myAccessCommand.Parameters.AddWithValue("?", reff);
+                }
+
+                try
+                {
+                    var myDataAdapter = new OleDbDataAdapter(myAccessCommand);
+                    myDataAdapter.Fill(dataset);
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine(e.Message);
+                }
+                finally
+                {
+                    connectionHandler.Close();
+                }
+            }
+            return dataset;
+        }
+
+        public override DataSet Connection(string reff, string lastmonth, string lastweek, string yesertday, string query)
+        {
+            var dataset = new DataSet();
+            using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
+            {
                 connectionHandler.OpenAsync();
                 var myAccessCommand = new OleDbCommand(query, connectionHandler);
                 if (reff != null)
                 {
+                    myAccessCommand.Parameters.AddWithValue("?", lastmonth);
+                    myAccessCommand.Parameters.AddWithValue("?", lastweek);
+                    myAccessCommand.Parameters.AddWithValue("?", yesertday);
                     myAccessCommand.Parameters.AddWithValue("?", reff);
                 }
 

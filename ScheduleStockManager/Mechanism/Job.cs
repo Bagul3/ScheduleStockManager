@@ -10,6 +10,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ScheduleStockManager.Models;
+using EASendMail;
 
 namespace ScheduleStockManager.Mechanism
 {
@@ -28,13 +29,16 @@ namespace ScheduleStockManager.Mechanism
                 {
                     var csv = new StringBuilder();
                     this.DoCleanup();
-                    var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"LASTDELV"},{"ean"}";
+                    var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"REM"},{"REM2"},{"season"}";
                     csv.AppendLine(headers);
                     Console.WriteLine("Getting SKUs from online file");
                     var t2TreFs = RetrieveStockFromOnline();
 
-                    Console.WriteLine("Cleaning up DESC table");
-                    this.Connection(null, SqlQueries.DeleteSKUs);
+                    //Console.WriteLine("Creating new DESC database");
+                    //CreateDbfFile();
+
+                    //Console.WriteLine("Cleaning up DESC table");
+                    //this.Connection(null, SqlQueries.DeleteSKUs);
 
                     Console.WriteLine("Gathering EAN Codes");
                     var eanDataset = Connection(null, SqlQueries.GetEanCodes);
@@ -48,15 +52,44 @@ namespace ScheduleStockManager.Mechanism
                     Console.WriteLine("Building the stock");
                     var rows = this.Connection(null, SqlQueries.StockQuery);
                     
-                    foreach (DataRow reff in rows.Tables[0].Rows)
+                    if (System.Configuration.ConfigurationManager.AppSettings["Split_Stock_File"].ToUpper() == "TRUE")
                     {
-                        csv.Append(this.DoJob(reff, eanDataset));
-                    }
+                        var i = 0;
+                        int card = 0;
+                        foreach (DataRow reff in rows.Tables[0].Rows)
+                        {
+                            Random rnd = new Random();
+                            card = rnd.Next(520);
+                            csv.Append(this.DoJob(reff, eanDataset));
+                            i++;
+                            if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
+                            {
+                                File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["Split_OutputPath"] + card + ".csv", csv.ToString());
+                                csv = new StringBuilder();
+                                csv.AppendLine(headers);
+                                i = 0;
+                            }
+                        }
 
-                    File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
+                        File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["Split_OutputPath"] + card + ".csv", csv.ToString());
+                        csv = new StringBuilder();
+                    }
+                    else
+                    {
+                        foreach (DataRow reff in rows.Tables[0].Rows)
+                        {
+                            csv.Append(this.DoJob(reff, eanDataset));
+                        }
+
+                        File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
+                    }
+                    
                     Console.WriteLine(stopwatch.Elapsed);
                     Console.WriteLine("Stock file created on: " + DateTime.Now);
                     stopwatch.Stop();
+                    rows = null;
+                    csv = null;
+                    t2TreFs = null;
                 }
                 Thread.Sleep(this.GetRepetitionIntervalTime());
             }
@@ -71,6 +104,8 @@ namespace ScheduleStockManager.Mechanism
 
         public abstract DataSet Connection(string reff, string query);
 
+        public abstract DataSet Connection(string reff, string lastmonth, string lastweek, string yesertday, string query);
+
         public abstract void InsertIntoDescriptions(string sku);
 
         public abstract void DoCleanup();
@@ -83,31 +118,6 @@ namespace ScheduleStockManager.Mechanism
 
         public abstract TimeSpan GetEndTime();
 
-        //private IEnumerable<string> QueryDescriptionRefs()
-        //{
-        //    var dvEmp = new DataView();
-        //    new LogWriter().LogWrite("Getting refs from description file");
-        //    try
-        //    {
-        //        using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["ExcelConnectionString"]))
-        //        {
-        //            connectionHandler.Open();
-        //            var adp = new OleDbDataAdapter("SELECT * FROM [Sheet1$B:B]", connectionHandler);
-
-        //            var dsXls = new DataSet();
-        //            adp.Fill(dsXls);
-        //            dvEmp = new DataView(dsXls.Tables[0]);
-        //        }
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        Console.WriteLine(e);
-        //        new LogWriter().LogWrite("Error occured getting refs from description file: " + e);
-        //    }
-
-        //    return (from DataRow row in dvEmp.Table.Rows select row.ItemArray[0].ToString()).ToList();
-        //}
-
         public string GetCSV(string url)
         {
             var req = (HttpWebRequest)WebRequest.Create(url);
@@ -118,6 +128,38 @@ namespace ScheduleStockManager.Mechanism
             sr.Close();
 
             return results;
+        }
+
+        public void DeleteExistingDd()
+        {
+            Console.WriteLine("Creating new DESC database");
+            if (File.Exists(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"] + "DESC.dbf"))
+            {
+                File.Delete(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"] + "DESC.dbf");
+            }
+        }
+
+        public void CreateDbfFile()
+        {
+            try
+            {
+                using (var connection = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
+                {
+                    connection.Open();
+                    var command = connection.CreateCommand();
+
+                    command.CommandText = "create table DESC(INDIVIDUAL (ID int primary key, SKU char(100))";
+                    command.ExecuteNonQuery();
+                    connection.Close();
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Stack trace: " + e.StackTrace);
+                Console.WriteLine("Message: " + e.Message);
+                Console.Read();
+            }            
+
         }
 
         private List<string> RetrieveStockFromOnline()
