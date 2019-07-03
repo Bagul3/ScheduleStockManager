@@ -25,7 +25,7 @@ namespace ScheduleStockManager.Mechanism
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
                 //  && DateTime.Now.DayOfWeek != DayOfWeek.Sunday
-                if (now > GetStartTime() && now < GetEndTime())
+                if (DateTime.Now.DayOfWeek != DayOfWeek.Sunday)
                 {
                     var csv = new StringBuilder();
                     this.DoCleanup();
