@@ -23,6 +23,7 @@ namespace ScheduleStockManager
             m_exePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             try
             {
+                DeleteOldFiles();
                 using (var w = File.AppendText(m_exePath + "\\" + "log.txt"))
                 {
                     Log(logMessage, w);
@@ -47,6 +48,13 @@ namespace ScheduleStockManager
             catch (Exception ex)
             {
             }
+        }
+
+        private void DeleteOldFiles()
+        {
+            FileInfo fi = new FileInfo(m_exePath + "\\" + "log.txt");
+            if (DateTime.Now.Day == 3 || DateTime.Now.Day == 14)
+                fi.Delete();
         }
     }
 }

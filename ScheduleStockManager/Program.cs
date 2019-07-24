@@ -11,8 +11,8 @@ namespace ScheduleStockManager
 
         private static void Start()
         {
-            var nonSchedulerJob = new ScheduleStockManager();
-            nonSchedulerJob.ExecuteAllJobs();
+            var nonSchedulerJob = new NonSchedulerJob();
+            nonSchedulerJob.ExecuteJob();
             // var jobManager = new JobManager();
             // jobManager.ExecuteAllJobs();
         }

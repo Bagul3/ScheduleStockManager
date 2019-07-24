@@ -7,10 +7,8 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using ScheduleStockManager.Models;
-using EASendMail;
+using StockCSV;
 
 namespace ScheduleStockManager.Mechanism
 {
@@ -20,12 +18,14 @@ namespace ScheduleStockManager.Mechanism
         {
             var now = DateTime.Now.TimeOfDay;
             var stopwatch = new Stopwatch();
+            var database = new Database();
+
             stopwatch.Start();
             //  && DateTime.Now.DayOfWeek != DayOfWeek.Sunday
             if (DateTime.Now.DayOfWeek != DayOfWeek.Sunday)
             {
                 var csv = new StringBuilder();
-                this.DoCleanup();
+                database.DoCleanup();
                 var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"REM"},{"REM2"},{"season"}";
                 csv.AppendLine(headers);
                 Console.WriteLine("Getting SKUs from online file");
@@ -38,16 +38,16 @@ namespace ScheduleStockManager.Mechanism
                 //this.Connection(null, SqlQueries.DeleteSKUs);
 
                 Console.WriteLine("Gathering EAN Codes");
-                var eanDataset = Connection(null, SqlQueries.GetEanCodes);
+                var eanDataset = database.Connection(null, SqlQueries.GetEanCodes);
 
                 Console.WriteLine("Injecting SKUs");
                 for (var i = 0; i < t2TreFs.Count; i++)
                 {
-                    InsertIntoDescriptions(t2TreFs[i]);
+                    database.InsertIntoDescriptions(t2TreFs[i]);
                 }
 
                 Console.WriteLine("Building the stock");
-                var rows = this.Connection(null, SqlQueries.StockQuery);
+                var rows = database.Connection(null, SqlQueries.StockQuery);
                 
                 if (System.Configuration.ConfigurationManager.AppSettings["Split_Stock_File"].ToUpper() == "TRUE")
                 {
@@ -57,7 +57,7 @@ namespace ScheduleStockManager.Mechanism
                     {
                         Random rnd = new Random();
                         card = rnd.Next(520);
-                        csv.Append(this.DoJob(reff, eanDataset));
+                        csv.Append(database.DoJob(reff, eanDataset));
                         i++;
                         if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
                         {
@@ -75,7 +75,7 @@ namespace ScheduleStockManager.Mechanism
                 {
                     foreach (DataRow reff in rows.Tables[0].Rows)
                     {
-                        csv.Append(this.DoJob(reff, eanDataset));
+                        csv.Append(database.DoJob(reff, eanDataset));
                     }
 
                     File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());

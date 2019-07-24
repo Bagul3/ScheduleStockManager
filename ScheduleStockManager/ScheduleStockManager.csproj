@@ -52,6 +52,7 @@
     <Compile Include="LogWriter.cs" />
     <Compile Include="Mechanism\Job.cs" />
     <Compile Include="Mechanism\JobManager.cs" />
+    <Compile Include="Mechanism\NonSchedulerJob.cs" />
     <Compile Include="Models\Descriptions.cs" />
     <Compile Include="Models\ExcelMapper.cs" />
     <Compile Include="Models\SqlQueries.cs" />
