@@ -22,11 +22,11 @@ namespace ScheduleStockManager.Mechanism
 
             stopwatch.Start();
             //  && DateTime.Now.DayOfWeek != DayOfWeek.Sunday
-            if (DateTime.Now.DayOfWeek != DayOfWeek.Sunday)
+            if (true)
             {
                 var csv = new StringBuilder();
                 database.DoCleanup();
-                var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"REM"},{"REM2"},{"season"}";
+                var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"season"},{"rem1"},{"rem2"},{"visibility"}";
                 csv.AppendLine(headers);
                 Console.WriteLine("Getting SKUs from online file");
                 var t2TreFs = RetrieveStockFromOnline();
@@ -57,7 +57,7 @@ namespace ScheduleStockManager.Mechanism
                     {
                         Random rnd = new Random();
                         card = rnd.Next(520);
-                        csv.Append(database.DoJob(reff, eanDataset));
+                        csv.Append(database.DoJob(reff, eanDataset, t2TreFs));
                         i++;
                         if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
                         {
@@ -75,7 +75,7 @@ namespace ScheduleStockManager.Mechanism
                 {
                     foreach (DataRow reff in rows.Tables[0].Rows)
                     {
-                        csv.Append(database.DoJob(reff, eanDataset));
+                        csv.Append(database.DoJob(reff, eanDataset, t2TreFs));
                     }
 
                     File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());

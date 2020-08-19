@@ -10,7 +10,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ScheduleStockManager.Models;
-using EASendMail;
 
 namespace ScheduleStockManager.Mechanism
 {
@@ -25,7 +24,7 @@ namespace ScheduleStockManager.Mechanism
                 var stopwatch = new Stopwatch();
                 stopwatch.Start();
                 //  && DateTime.Now.DayOfWeek != DayOfWeek.Sunday
-                if (DateTime.Now.DayOfWeek != DayOfWeek.Sunday)
+                if (true)
                 {
                     var csv = new StringBuilder();
                     this.DoCleanup();
@@ -60,7 +59,7 @@ namespace ScheduleStockManager.Mechanism
                         {
                             Random rnd = new Random();
                             card = rnd.Next(520);
-                            csv.Append(this.DoJob(reff, eanDataset));
+                            csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
                             i++;
                             if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
                             {
@@ -78,7 +77,7 @@ namespace ScheduleStockManager.Mechanism
                     {
                         foreach (DataRow reff in rows.Tables[0].Rows)
                         {
-                            csv.Append(this.DoJob(reff, eanDataset));
+                            csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
                         }
 
                         File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
@@ -100,7 +99,7 @@ namespace ScheduleStockManager.Mechanism
             return null;
         }
 
-        public abstract string DoJob(DataRow data, DataSet dt);
+        public abstract string DoJob(DataRow data, DataSet dt, List<string> t2Refs);
 
         public abstract DataSet Connection(string reff, string query);
 

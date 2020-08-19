@@ -15,6 +15,15 @@ namespace StockCSV
     {
         private readonly LogWriter _logger = new LogWriter();
         private List<string> doneList = new List<string>();
+        private DataSet LatestSeason;
+        private static DataSet REMTable;
+
+        public Database()
+        {
+            LatestSeason = Connection(null, SqlQueries.FetchLatestSeaosn);
+            REMTable = Connection(null, SqlQueries.FetchREM);
+        }
+
 
         public override void InsertIntoDescriptions(string sku)
         {
@@ -23,10 +32,10 @@ namespace StockCSV
             {
                 Console.WriteLine("Adding new SKU to DESC Table: " + sku);
                 Connection(sku, SqlQueries.InsertSKU);
-            }                
+            }           
         }
 
-        public override string DoJob(DataRow dr, DataSet dt)
+        public override string DoJob(DataRow dr, DataSet dt, List<string> t2TreFs)
         {
             try
             {
@@ -41,6 +50,7 @@ namespace StockCSV
                 _logger.LogWrite("Working....");
 
                 var isStock = 0;
+
                 for (var i = 1; i < 14; i++)
                 {
                     if (!string.IsNullOrEmpty(dr["QTY" + i].ToString()))
@@ -61,7 +71,7 @@ namespace StockCSV
                                         .ToString();
                                 }
 
-                                isStock = actualStock == "0" ? 0 : 1;
+                                isStock = SantizeStock(actualStock) == "0" ? 0 : 1;
 
                                 inStockFlag = true;
                             }
@@ -69,6 +79,9 @@ namespace StockCSV
                             {
                                 isStock = 0;
                             }
+
+                            var colourCollection = GetAllColoursForSku(dr["NewStyle"].ToString().Substring(0,6), t2TreFs);
+
                             var append = (1000 + i).ToString();
                             groupSkus = dr["NewStyle"].ToString();
                             var groupSkus2 = dr["NewStyle"] + append.Substring(1, 3);
@@ -80,9 +93,27 @@ namespace StockCSV
                                 eanCode = eanRow["EAN_CODE"].ToString();
                             }
 
-                            var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
+                            DateTime date = DateTime.Now;
+                            if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
+                            {
+                                _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
+                            }
+                            else
+                            {
+                                date = Convert.ToDateTime(dr["LASTDELV"]);
+                            }
 
-                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
+                            var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
+                            var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
+
+                            var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
+                            //var url_key = "\"" + unquotedName.Replace(" ", "-").ToLower() + "\"";
+                            //var url_path = "\"" + unquotedName.Replace(" ", "-").ToLower() + ".html" + "\"";
+
+                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""}" +
+                                 $",{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""}" +
+                                 $",{"\"" + dr["USER1"] + "\""},{rem1},{rem2},{"\"1\""}";
+                            // {"\"" + (isStock == 1 ? "2" : "4") + "\""}
                             csv.AppendLine(newLine);
 
                         }
@@ -95,8 +126,23 @@ namespace StockCSV
                 isStock = inStockFlag ? 1 : 0;
                 if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
                 {
-                    var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
-                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
+
+
+                    DateTime date = DateTime.Now;
+                    if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
+                    {
+                        _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
+                    }
+                    else
+                    {
+                        date = Convert.ToDateTime(dr["LASTDELV"]);
+                    }
+
+                    var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
+                    var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
+
+                    var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
+                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem1},{rem2},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
                     csv.AppendLine(newLine2);
                 }
 
@@ -114,20 +160,55 @@ namespace StockCSV
             }
         }
 
+        private string GetLatestSeason()
+        {
+            try
+            {
+                var remresult = LatestSeason.Tables[0];
+                if (remresult != null)
+                {
+                    return remresult.Rows[0]["SEASON"].ToString();
+                }
+                return "";
+            }
+            catch(Exception ex)
+            {
+                new LogWriter().LogWrite(ex.StackTrace);
+                return "";
+            }            
+        }
+
+        private List<string> GetAllColoursForSku(string sku, List<string> t2TreFs)
+        {
+            var colours = t2TreFs.Where(x => x.Contains(sku)).ToList();
+            return colours;
+        }
+
+        private string SantizeStock(string stock)
+        {
+            var i = 0;
+            var result = int.TryParse(stock, out i);
+            if (result)
+                return Convert.ToInt32(stock) < 0 ? "0" : stock;
+            new LogWriter("ERROR: invalid number " + stock);
+            return stock;
+        }
+
         private DateTime IncreaseYearIfCurrentSeason(string season, DateTime date)
         {
-            //if (season.Length != 3 || !season.ToLower().Contains('s') || !season.ToLower().Contains('w'))
-            //    return date;
-
-            //var year = DateTime.Now.Year.ToString().Split(new string[] { "20" }, StringSplitOptions.None)[1];
-            //var seasonYear = season.ToLower().Split('s')[1];
-            //if (year == seasonYear)
-            //    return date.AddYears(1);
-            if(season.ToLower() == System.Configuration.ConfigurationManager.AppSettings["Season"].ToLower())
+            try
             {
-                return date.AddYears(1);
+                if (season.ToLower() == GetLatestSeason().ToLower())
+                {
+                    return date.AddYears(1);
+                }
+                return date;
             }
-            return date;
+            catch(Exception e)
+            {
+                throw e;
+            }
+            
         }
 
         public override void DoCleanup()
@@ -211,6 +292,19 @@ namespace StockCSV
         public override TimeSpan GetEndTime()
         {
             return TimeSpan.Parse(System.Configuration.ConfigurationManager.AppSettings["EndTime"]);
+        }
+
+        private static string GetREMValue(string rem)
+        {
+            if (!string.IsNullOrEmpty(rem))
+            {
+                var remresult = REMTable.Tables[0].Select("PROPERTY = '" + rem + "'").FirstOrDefault();
+                if (remresult != null)
+                {
+                    return remresult["NAME"].ToString();
+                }
+            }
+            return "";
         }
 
         public static string RemoveLineEndings(string value)
