@@ -8,9 +8,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using ScheduleStockManager.Models;
-using EASendMail;
 
 namespace ScheduleStockManager.Mechanism
 {
@@ -43,10 +41,13 @@ namespace ScheduleStockManager.Mechanism
                     Console.WriteLine("Gathering EAN Codes");
                     var eanDataset = Connection(null, SqlQueries.GetEanCodes);
 
+                    var rem1Values = FetchREM("REM1");
+                    var rem2Values = FetchREM("REM2");
+
                     Console.WriteLine("Injecting SKUs");
                     for (var i = 0; i < t2TreFs.Count; i++)
                     {
-                        InsertIntoDescriptions(t2TreFs[i]);
+                       InsertIntoDescriptions(t2TreFs[i]);
                     }
 
                     Console.WriteLine("Building the stock");
@@ -60,7 +61,7 @@ namespace ScheduleStockManager.Mechanism
                         {
                             Random rnd = new Random();
                             card = rnd.Next(520);
-                            csv.Append(this.DoJob(reff, eanDataset));
+                            csv.Append(this.DoJob(reff, eanDataset, rem1Values, rem2Values));
                             i++;
                             if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
                             {
@@ -78,7 +79,7 @@ namespace ScheduleStockManager.Mechanism
                     {
                         foreach (DataRow reff in rows.Tables[0].Rows)
                         {
-                            csv.Append(this.DoJob(reff, eanDataset));
+                            csv.Append(this.DoJob(reff, eanDataset, rem1Values, rem2Values));
                         }
 
                         File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
@@ -100,7 +101,7 @@ namespace ScheduleStockManager.Mechanism
             return null;
         }
 
-        public abstract string DoJob(DataRow data, DataSet dt);
+        public abstract string DoJob(DataRow data, DataSet dt, List<REMModel> rem1, List<REMModel> rem2);
 
         public abstract DataSet Connection(string reff, string query);
 
@@ -185,6 +186,26 @@ namespace ScheduleStockManager.Mechanism
             }
 
             return skus;
+        }
+
+        private List<REMModel> FetchREM(string rem)
+        {
+            try
+            {
+                var ds = Connection(rem, SqlQueries.FetchREM);
+                var rem1 = new List<REMModel>();
+
+                foreach (DataRow dr in ds.Tables[0].Rows)
+                {
+                    rem1.Add(new REMModel(dr["Name"].ToString(), dr["Id"].ToString(), dr["Property"].ToString(), rem));
+                }
+                return rem1;
+            }
+            catch (Exception ex)
+            {
+                new LogWriter().LogWrite("ERROR: " + ex.StackTrace);
+            }
+            return new List<REMModel>();
         }
     }
 }

@@ -23,5 +23,7 @@
         public static string DoesSKUExist => @"SELECT SKU FROM [DESC] WHERE SKU = (?)";
 
         public static string DeleteSKUs => @"DELETE FROM [DESC]";
+
+        public static string FetchREM => @"SELECT * FROM [REM] where REM = ?";
     }
 }
