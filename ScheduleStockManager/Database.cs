@@ -26,7 +26,7 @@ namespace StockCSV
             }                
         }
 
-        public override string DoJob(DataRow dr, DataSet dt)
+        public override string DoJob(DataRow dr, DataSet ean, List<REMModel> rem1, List<REMModel> rem2)
         {
             try
             {
@@ -73,7 +73,7 @@ namespace StockCSV
                             groupSkus = dr["NewStyle"].ToString();
                             var groupSkus2 = dr["NewStyle"] + append.Substring(1, 3);
 
-                            var eanRow = dt.Tables[0].Select("T2T_CODE = '" + groupSkus2 + "'").FirstOrDefault();
+                            var eanRow = ean.Tables[0].Select("T2T_CODE = '" + groupSkus2 + "'").FirstOrDefault();
                             var eanCode = "";
                             if (eanRow != null)
                             {
@@ -81,8 +81,12 @@ namespace StockCSV
                             }
 
                             var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
+                            var rem1Code = rem1.FirstOrDefault(x => x.T2T_Id == dr["REM"].ToString())?.Name;
+                            rem1Code = rem1Code ?? "";
+                            var rem2Code = rem1.FirstOrDefault(x => x.T2T_Id == dr["REM2"].ToString())?.Name;
 
-                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
+                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""}," +
+                                $"{"\"" + rem1Code + "\""},{"\"" + rem2Code + "\""},{"\"" + dr["USER1"] + "\""}";
                             csv.AppendLine(newLine);
 
                         }
@@ -96,7 +100,12 @@ namespace StockCSV
                 if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
                 {
                     var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), Convert.ToDateTime(dr["LASTDELV"])).ToString("yyyy/MM/dd");
-                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["REM"] + "\""},{"\"" + dr["REM2"] + "\""},{"\"" + dr["USER1"] + "\""}";
+                    var rem1Code = rem1.FirstOrDefault(x => x.T2T_Id == dr["REM"].ToString())?.Name;
+                    rem1Code = rem1Code ?? "";
+                    var rem2Code = rem1.FirstOrDefault(x => x.T2T_Id == dr["REM2"].ToString())?.Name;
+
+                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""}," +
+                        $"{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + rem1Code + "\""},{"\"" + rem2Code + "\""},{"\"" + dr["USER1"] + "\""}";
                     csv.AppendLine(newLine2);
                 }
 
@@ -229,5 +238,7 @@ namespace StockCSV
                 .Replace(lineSeparator, string.Empty)
                 .Replace(paragraphSeparator, string.Empty);
         }
+
+        
     }
 }

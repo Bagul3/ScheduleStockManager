@@ -55,6 +55,7 @@
     <Compile Include="Mechanism\NonSchedulerJob.cs" />
     <Compile Include="Models\Descriptions.cs" />
     <Compile Include="Models\ExcelMapper.cs" />
+    <Compile Include="Models\REMModel.cs" />
     <Compile Include="Models\SqlQueries.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
