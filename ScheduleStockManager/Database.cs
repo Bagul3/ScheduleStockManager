@@ -15,13 +15,14 @@ namespace StockCSV
     {
         private readonly LogWriter _logger = new LogWriter();
         private List<string> doneList = new List<string>();
-        private DataSet LatestSeason;
+        private DataSet SeasonalData;
         private static DataSet REMTable;
 
         public Database()
         {
-            LatestSeason = Connection(null, SqlQueries.FetchLatestSeaosn);
+            SeasonalData = Connection(null, SqlQueries.FetchLatestSeaosn);
             REMTable = Connection(null, SqlQueries.FetchREM);
+            var derp = "";
         }
 
 
@@ -106,13 +107,11 @@ namespace StockCSV
                             var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
                             var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
 
-                            var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
-                            //var url_key = "\"" + unquotedName.Replace(" ", "-").ToLower() + "\"";
-                            //var url_path = "\"" + unquotedName.Replace(" ", "-").ToLower() + ".html" + "\"";
+                            var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
 
                             var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""}" +
                                  $",{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""}" +
-                                 $",{"\"" + dr["USER1"] + "\""},{rem1},{rem2},{"\"1\""}";
+                                 $",{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"1\""}";
                             // {"\"" + (isStock == 1 ? "2" : "4") + "\""}
                             csv.AppendLine(newLine);
 
@@ -141,8 +140,8 @@ namespace StockCSV
                     var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
                     var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
 
-                    var year = IncreaseYearIfCurrentSeason(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
-                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem1},{rem2},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
+                    var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
+                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
                     csv.AppendLine(newLine2);
                 }
 
@@ -158,24 +157,6 @@ namespace StockCSV
             {
 
             }
-        }
-
-        private string GetLatestSeason()
-        {
-            try
-            {
-                var remresult = LatestSeason.Tables[0];
-                if (remresult != null)
-                {
-                    return remresult.Rows[0]["SEASON"].ToString();
-                }
-                return "";
-            }
-            catch(Exception ex)
-            {
-                new LogWriter().LogWrite(ex.StackTrace);
-                return "";
-            }            
         }
 
         private List<string> GetAllColoursForSku(string sku, List<string> t2TreFs)
@@ -194,21 +175,37 @@ namespace StockCSV
             return stock;
         }
 
-        private DateTime IncreaseYearIfCurrentSeason(string season, DateTime date)
+        private DateTime UpdateDeliveryDate(string season, DateTime date)
         {
             try
             {
-                if (season.ToLower() == GetLatestSeason().ToLower())
+                var delimiter = 10;
+                if (SeasonalData != null)
                 {
-                    return date.AddYears(1);
+                    for(int i = 0; i < SeasonalData.Tables[0].Rows.Count; i++)
+                    {
+                        if (season.ToLower() == SeasonalData.Tables[0].Rows[i]["SEASON"].ToString().ToLower())
+                        {
+                            if (SeasonalData.Tables[0].Rows[i]["TOPPAGE"].ToString() == "true")
+                            {
+                                return date.AddYears(delimiter - Convert.ToInt32(SeasonalData.Tables[0].Rows[i]["ID"]));
+                            }                            
+                            else if (SeasonalData.Tables[0].Rows[i]["BOTTOMPAGE"].ToString() == "true")
+                            {
+                                return date.AddYears(-10);
+                            }
+                        }
+                    }
                 }
+                
                 return date;
             }
             catch(Exception e)
             {
-                throw e;
+                new LogWriter().LogWrite(e.Message);
+                new LogWriter().LogWrite(e.StackTrace);
             }
-            
+            return date;
         }
 
         public override void DoCleanup()
@@ -298,7 +295,7 @@ namespace StockCSV
         {
             if (!string.IsNullOrEmpty(rem))
             {
-                var remresult = REMTable.Tables[0].Select("PROPERTY = '" + rem + "'").FirstOrDefault();
+                var remresult = REMTable.Tables[0].Select("Id = '" + rem + "'").FirstOrDefault();
                 if (remresult != null)
                 {
                     return remresult["NAME"].ToString();
