@@ -48,6 +48,8 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data.Entity" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -56,6 +58,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cordner.Context.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Cordner.Context.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Cordner.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Cordner.tt</DependentUpon>
+    </Compile>
+    <Compile Include="Cordner.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Cordner.edmx</DependentUpon>
+    </Compile>
     <Compile Include="Database.cs" />
     <Compile Include="LogWriter.cs" />
     <Compile Include="Mechanism\Job.cs" />
@@ -64,6 +81,9 @@
     <Compile Include="Models\Descriptions.cs" />
     <Compile Include="Models\ExcelMapper.cs" />
     <Compile Include="Models\SqlQueries.cs" />
+    <Compile Include="Nightly.cs">
+      <DependentUpon>Cordner.tt</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -71,10 +91,29 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
+    <EntityDeploy Include="Cordner.edmx">
+      <Generator>EntityModelCodeGenerator</Generator>
+      <LastGenOutput>Cordner.Designer.cs</LastGenOutput>
+    </EntityDeploy>
+    <None Include="Cordner.edmx.diagram">
+      <DependentUpon>Cordner.edmx</DependentUpon>
+    </None>
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Cordner.Context.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>Cordner.edmx</DependentUpon>
+      <LastGenOutput>Cordner.Context.cs</LastGenOutput>
+    </Content>
+    <Content Include="Cordner.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <DependentUpon>Cordner.edmx</DependentUpon>
+      <LastGenOutput>Cordner.cs</LastGenOutput>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

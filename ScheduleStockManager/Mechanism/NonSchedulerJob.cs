@@ -16,39 +16,62 @@ namespace ScheduleStockManager.Mechanism
     {
         public void ExecuteJob()
         {
-            var stopwatch = new Stopwatch();
             var database = new Database();
-
-            stopwatch.Start();
+            var date = DateTime.Now.Date;
+            
             if (true)
             {
-                var SEASON = "S17";
+                var seasonsdata = database.Connection(null, SqlQueries.FetchSeasons);
                 var csv = new StringBuilder();
+                var csvBody = new StringBuilder();
                 database.DoCleanup();
-                var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"season"},{"rem1"},{"rem2"},{"visibility"}";
-                csv.AppendLine(headers);
+                var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"season"},{"rem1"},{"rem2"},{"visibility"}";                
                 Console.WriteLine("Getting SKUs from online file");
-                var t2TreFs = RetrieveStockFromOnline();
+                var skuFromOnline = RetrieveStockFromOnline();
 
                 Console.WriteLine("Gathering EAN Codes");
                 var eanDataset = database.Connection(null, SqlQueries.GetEanCodes);
 
                 Console.WriteLine("Building the stock");
-                var data = database.Connection(null, SqlQueries.StockQuery);                
-                
-                foreach (string sku in t2TreFs)
-                {
-                    var rows = data.Tables[0].Select($"REF = {sku} AND USER1 = '{SEASON}'");
-                    foreach (DataRow reff in rows)
-                    {
-                        csv.Append(database.DoJob(reff, eanDataset, t2TreFs));
-                    }
-                }
+                var allcordnersStock = database.Connection(null, SqlQueries.StockQuery);
 
-                File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}-{SEASON}.csv" , csv.ToString());                
-                Console.WriteLine(stopwatch.Elapsed);
-                Console.WriteLine("Stock file created on: " + DateTime.Now);
-                stopwatch.Stop();
+                List<string> seasons = seasonsdata.Tables[0].Select().Select(x => x["User1"].ToString()).Distinct().ToList();
+
+                foreach (var season in seasons)
+                {
+                    csv.AppendLine(headers);
+                    if (!HasGeneratedForToday(date, season))
+                    {
+                        var stopwatch = new Stopwatch();
+                        stopwatch.Start();
+                        foreach (string sku in skuFromOnline)
+                        {
+                            var rows = allcordnersStock.Tables[0].Select($"REF = {sku} AND USER1 = '{season}'");
+                            foreach (DataRow reff in rows)
+                            {
+                                var result = database.DoJob(reff, eanDataset, skuFromOnline);
+                                if (result != "")
+                                    csvBody.Append(result);
+                            }
+                        }
+                        UpdateNightly(date, season);
+                        if (!string.IsNullOrEmpty(csvBody.ToString()))
+                        {
+                            csv.Append(csvBody);
+                            File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}-{season}.csv", csv.ToString());
+                        }
+                        else
+                        {
+                            new LogWriter().LogWrite($"No data found for #{season}");
+                        }                        
+                        Console.WriteLine(stopwatch.Elapsed);
+                        Console.WriteLine("Stock file created on: " + DateTime.Now);
+                        stopwatch.Stop();
+                        //Environment.Exit(1);
+                    }
+                    csvBody = new StringBuilder();
+                    csv = new StringBuilder();
+                }
             }
         }
 
@@ -64,6 +87,26 @@ namespace ScheduleStockManager.Mechanism
                 sr.Close();
                 return results;
             }         
+        }
+
+        private bool HasGeneratedForToday(DateTime date, string season)
+        {
+            CordnersEntities cordners = new CordnersEntities();
+            var result = cordners.Nightly.FirstOrDefault(x => x.Date == date && x.Season == season);
+            return result != null;
+        }
+
+        private void UpdateNightly(DateTime date, string season)
+        {
+            var nightly = new Nightly()
+            {
+                Date = date,
+                Season = season
+            };
+
+            CordnersEntities cordners = new CordnersEntities();
+            cordners.Nightly.Add(nightly);
+            cordners.SaveChanges();
         }
 
         private List<string> RetrieveStockFromOnline()

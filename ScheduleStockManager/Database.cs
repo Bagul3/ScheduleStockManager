@@ -22,7 +22,6 @@ namespace StockCSV
         {
             SeasonalData = Connection(null, SqlQueries.FetchLatestSeaosn);
             REMTable = Connection(null, SqlQueries.FetchREM);
-            var derp = "";
         }
 
 
@@ -42,6 +41,9 @@ namespace StockCSV
             {
                 if (dr == null)
                     return "";
+                if (doneList.Contains(dr["NewStyle"].ToString()))
+                    return "";
+
                 var csv = new StringBuilder();
                 var actualStock = "0";
                 var inStockFlag = false;

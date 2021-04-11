@@ -68,6 +68,8 @@ WHERE (((Left([T2_LOOK]![KEY],3))='CAT'))
 
 		public static string FetchREM => @"SELECT * FROM [REM]";
 
+		public static string FetchSeasons => @"SELECT USER1 FROM [T2_HEAD]";
+
 		public static string SingleSku =>
 			@"SELECT ([T2_BRA].[REF] + [F7]) AS NEWSTYLE, Suppliers.MasterSupplier, Dept.MasterDept, Colour.MasterColour, Colour.F7, T2_HEAD.SHORT, T2_HEAD.REM, T2_HEAD.REM2, T2_HEAD.USER1,
 	T2_HEAD.[DESC], T2_HEAD.[GROUP], T2_HEAD.STYPE, T2_HEAD.SIZERANGE, T2_HEAD.SUPPLIER, T2_HEAD.SUPPREF, T2_HEAD.VAT, T2_HEAD.BASESELL, T2_HEAD.SELL, T2_HEAD.LASTDELV,
