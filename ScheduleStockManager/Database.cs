@@ -39,11 +39,6 @@ namespace StockCSV
         {
             try
             {
-                if (dr == null)
-                    return "";
-                if (doneList.Contains(dr["NewStyle"].ToString()))
-                    return "";
-
                 var csv = new StringBuilder();
                 var actualStock = "0";
                 var inStockFlag = false;
@@ -53,8 +48,9 @@ namespace StockCSV
                 _logger.LogWrite("Working....");
 
                 var isStock = 0;
-
-                for (var i = 1; i < 14; i++)
+                var minsize = Convert.ToInt32(dr["MINSIZE"]);
+                var maxsize = Convert.ToInt32(dr["MAXSIZE"]);
+                for (var i = minsize; i <= maxsize; i++)
                 {
                     if (!string.IsNullOrEmpty(dr["QTY" + i].ToString()))
                     {
@@ -121,31 +117,34 @@ namespace StockCSV
                         actualStock = "0";
                     }
                 }
-                doneList.Add(dr["NewStyle"].ToString());
+                //doneList.Add(dr["NewStyle"].ToString());
 
 
-                isStock = inStockFlag ? 1 : 0;
-                if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
-                {
+                //isStock = inStockFlag ? 1 : 0;
+                //if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
+                //{
 
 
-                    DateTime date = DateTime.Now;
-                    if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
-                    {
-                        _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
-                    }
-                    else
-                    {
-                        date = Convert.ToDateTime(dr["LASTDELV"]);
-                    }
+                //    DateTime date = DateTime.Now;
+                //    if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
+                //    {
+                //        _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
+                //    }
+                //    else
+                //    {
+                //        date = Convert.ToDateTime(dr["LASTDELV"]);
+                //    }
 
-                    var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
-                    var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
+                //    var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
+                //    var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
 
-                    var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
-                    var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
-                    csv.AppendLine(newLine2);
-                }
+                //    var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
+                //    if (groupSkus != "")
+                //    {
+                //        var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
+                //        csv.AppendLine(newLine2);
+                //    }                    
+                //}
 
                 return csv.ToString();
             }
@@ -181,24 +180,43 @@ namespace StockCSV
         {
             try
             {
-                var delimiter = 10;
-                if (SeasonalData != null)
+                var topSeason = System.Configuration.ConfigurationManager.AppSettings["TopSeason"];
+                var secondSeason = System.Configuration.ConfigurationManager.AppSettings["SecondSeason"];
+                var thirdSeason = System.Configuration.ConfigurationManager.AppSettings["ThirdSeason"];
+                var foruthSeason = System.Configuration.ConfigurationManager.AppSettings["FourthSeason"];
+
+
+                if (topSeason == season)
                 {
-                    for(int i = 0; i < SeasonalData.Tables[0].Rows.Count; i++)
-                    {
-                        if (season.ToLower() == SeasonalData.Tables[0].Rows[i]["SEASON"].ToString().ToLower())
-                        {
-                            if (SeasonalData.Tables[0].Rows[i]["TOPPAGE"].ToString() == "true")
-                            {
-                                return date.AddYears(delimiter - Convert.ToInt32(SeasonalData.Tables[0].Rows[i]["ID"]));
-                            }                            
-                            else if (SeasonalData.Tables[0].Rows[i]["BOTTOMPAGE"].ToString() == "true")
-                            {
-                                return date.AddYears(-10);
-                            }
-                        }
-                    }
+                    date = new DateTime(2026, 06, 01);
                 }
+
+                if (secondSeason == season)
+                {
+                    date = new DateTime(2025, 06, 01);
+                }
+
+                if (thirdSeason == season)
+                {
+                    date = new DateTime(2024, 06, 01);
+                }
+
+                if (foruthSeason == season)
+                {
+                    date = new DateTime(2023, 06, 01);
+                }
+
+
+
+                //if (SeasonalData.Tables[0].Rows[i]["TOPPAGE"].ToString() == "true")
+                //{
+                //    return date.AddYears(delimiter - Convert.ToInt32(SeasonalData.Tables[0].Rows[i]["ID"]));
+                //}                            
+                //else if (SeasonalData.Tables[0].Rows[i]["BOTTOMPAGE"].ToString() == "true")
+                //{
+                //    return date.AddYears(-10);
+                //}
+                
                 
                 return date;
             }
@@ -210,14 +228,15 @@ namespace StockCSV
             return date;
         }
 
-        public override void DoCleanup()
+        public override void DoCleanup(string season)
         {
             Console.WriteLine($"The Clean Job thread started successfully.");
             new LogWriter("The Clean Job thread started successfully");
             Console.WriteLine("Clean up: removing exisiting stock.csv");
-            if (File.Exists(System.Configuration.ConfigurationManager.AppSettings["OutputPath"]))
+
+            foreach (string file in Directory.EnumerateFiles(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], "*.csv"))
             {
-                File.Delete(System.Configuration.ConfigurationManager.AppSettings["OutputPath"]);
+                File.Delete(file);
             }
         }
 

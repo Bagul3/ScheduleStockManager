@@ -16,64 +16,73 @@ namespace ScheduleStockManager.Mechanism
     {
         public void ExecuteJob()
         {
-            var database = new Database();
-            var date = DateTime.Now.Date;
-            
-            if (true)
+            var successful = true;
+            try
             {
-                var seasonsdata = database.Connection(null, SqlQueries.FetchSeasons);
-                var csv = new StringBuilder();
-                var csvBody = new StringBuilder();
-                database.DoCleanup();
-                var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"season"},{"rem1"},{"rem2"},{"visibility"}";                
-                Console.WriteLine("Getting SKUs from online file");
-                var skuFromOnline = RetrieveStockFromOnline();
-
-                Console.WriteLine("Gathering EAN Codes");
-                var eanDataset = database.Connection(null, SqlQueries.GetEanCodes);
-
-                Console.WriteLine("Building the stock");
-                var allcordnersStock = database.Connection(null, SqlQueries.StockQuery);
-
-                List<string> seasons = seasonsdata.Tables[0].Select().Select(x => x["User1"].ToString()).Distinct().ToList();
-
-                foreach (var season in seasons)
+                var database = new Database();
+                var date = DateTime.Now.Date;                
+                if (true)
                 {
-                    csv.AppendLine(headers);
-                    if (!HasGeneratedForToday(date, season))
+                    var seasonsdata = database.Connection(null, SqlQueries.FetchSeasons);
+                    var csv = new StringBuilder();
+                    var csvBody = new StringBuilder();                    
+                    var headers = $"{"\"" + "sku" + "\""},{"\"" + "qty" + "\""},{"\"" + "is_in_stock" + "\""},{"\"" + "sort_date" + "\""},{"\"" + "ean" + "\""},{"\"" + "price" + "\""},{"\"" + "season" + "\""},{"\"" + "rem1" + "\""},{"\"" + "rem2" + "\""},{"\"" + "visibility" + "\""}";
+                    Console.WriteLine("Getting SKUs from online file");
+                    var skuFromOnline = RetrieveStockFromOnline();
+
+                    Console.WriteLine("Gathering EAN Codes");
+                    var eanDataset = database.Connection(null, SqlQueries.GetEanCodes);
+
+                    Console.WriteLine("Building the stock");
+                    var allcordnersStock = database.Connection(null, SqlQueries.StockQueryALL);
+
+                    //List<string> seasons = seasonsdata.Tables[0].Select().Select(x => x["User1"].ToString()).Distinct().ToList();                    
+                    database.DoCleanup("");
+                    if (true)
                     {
                         var stopwatch = new Stopwatch();
                         stopwatch.Start();
+                        var time = GetTimestamp(DateTime.Now);
+                        File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}/stock-{time}.csv", headers.ToString() + Environment.NewLine);
                         foreach (string sku in skuFromOnline)
                         {
-                            var rows = allcordnersStock.Tables[0].Select($"REF = {sku} AND USER1 = '{season}'");
+                            var rows = allcordnersStock.Tables[0].Select($"REF = {sku}");
                             foreach (DataRow reff in rows)
                             {
                                 var result = database.DoJob(reff, eanDataset, skuFromOnline);
                                 if (result != "")
-                                    csvBody.Append(result);
+                                    File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}/stock-{time}.csv", result.ToString() + Environment.NewLine);
+                            }
+                            if (new FileInfo($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}/stock-{time}.csv").Length > 1887436)
+                            {
+                                time = GetTimestamp(DateTime.Now);
+                                File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}/stock-{time}.csv", headers.ToString() + Environment.NewLine);
                             }
                         }
-                        UpdateNightly(date, season);
-                        if (!string.IsNullOrEmpty(csvBody.ToString()))
-                        {
-                            csv.Append(csvBody);
-                            File.AppendAllText($"{System.Configuration.ConfigurationManager.AppSettings["OutputPath"]}-{season}.csv", csv.ToString());
-                        }
-                        else
-                        {
-                            new LogWriter().LogWrite($"No data found for #{season}");
-                        }                        
+                        //UpdateNightly(date, season);                        
                         Console.WriteLine(stopwatch.Elapsed);
                         Console.WriteLine("Stock file created on: " + DateTime.Now);
                         stopwatch.Stop();
-                        //Environment.Exit(1);
                     }
-                    csvBody = new StringBuilder();
-                    csv = new StringBuilder();
                 }
             }
+            catch(Exception ex)
+            {
+                successful = false;
+                new LogWriter().LogWrite(ex.Message);
+                new LogWriter().LogWrite(ex.StackTrace);
+            }
+            finally
+            {
+                SendEmail(successful);
+            }
         }
+
+        public static String GetTimestamp(DateTime value)
+        {
+            return value.ToString("yyyyMMddHHmmssffff");
+        }
+
 
         public string GetCSV(string url)
         {
@@ -87,6 +96,11 @@ namespace ScheduleStockManager.Mechanism
                 sr.Close();
                 return results;
             }         
+        }
+
+        private void SendEmail(bool sucessful)
+        {
+          new Emailer().SendStockGenerationEmail(sucessful);
         }
 
         private bool HasGeneratedForToday(DateTime date, string season)

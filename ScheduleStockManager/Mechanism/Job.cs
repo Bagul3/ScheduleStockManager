@@ -26,8 +26,7 @@ namespace ScheduleStockManager.Mechanism
                 //  && DateTime.Now.DayOfWeek != DayOfWeek.Sunday
                 if (true)
                 {
-                    var csv = new StringBuilder();
-                    this.DoCleanup();
+                    var csv = new StringBuilder();                    
                     var headers = $"{"sku"},{"qty"},{"is_in_stock"},{"sort_date"},{"ean"},{"price"},{"REM"},{"REM2"},{"season"}";
                     csv.AppendLine(headers);
                     Console.WriteLine("Getting SKUs from online file");
@@ -59,7 +58,7 @@ namespace ScheduleStockManager.Mechanism
                         {
                             Random rnd = new Random();
                             card = rnd.Next(520);
-                            csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
+                           // csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
                             i++;
                             if (i == Convert.ToInt32(System.Configuration.ConfigurationManager.AppSettings["Split_Delimiter"]))
                             {
@@ -77,7 +76,7 @@ namespace ScheduleStockManager.Mechanism
                     {
                         foreach (DataRow reff in rows.Tables[0].Rows)
                         {
-                            csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
+                           // csv.Append(this.DoJob(reff, eanDataset, t2TreFs));
                         }
 
                         File.AppendAllText(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], csv.ToString());
@@ -107,7 +106,7 @@ namespace ScheduleStockManager.Mechanism
 
         public abstract void InsertIntoDescriptions(string sku);
 
-        public abstract void DoCleanup();
+        public abstract void DoCleanup(string season);
 
         public abstract bool IsRepeatable();
 
