@@ -7,14 +7,14 @@ namespace ScheduleStockManager
 {
     class Emailer
     {
-        public void SendStockGenerationEmail(bool success)
+        public void SendStockGenerationEmail(bool success, string type)
         {
             try
             {
                 if (System.Configuration.ConfigurationManager.AppSettings["EmailGeneration"] =="True")
                 {
                     SmtpClient mySmtpClient = CreateSmtpClient();
-                    MailMessage email = success ? BuildSuccessEmail() : BuildErrorEmail();
+                    MailMessage email = success ? BuildSuccessEmail(type) : BuildErrorEmail(type);
                     mySmtpClient.Send(email);
                 }                
             }
@@ -32,34 +32,34 @@ namespace ScheduleStockManager
             }
         }
 
-        private MailMessage BuildSuccessEmail()
+        private MailMessage BuildSuccessEmail(string type)
         {
             MailMessage myMail = new MailMessage();
             myMail.To.Add(new MailAddress("vandershannon@gmail.com", "Conor"));
             myMail.To.Add(new MailAddress("david@cordners.co.uk", "David"));
             myMail.From = new MailAddress("nightly@job.com", "Nightly Job");
 
-            myMail.Subject = "Nightly Job: Sucessfully Generated";
+            myMail.Subject = $"Nightly Job: Sucessfully Generated for {type}";
             myMail.SubjectEncoding = Encoding.UTF8;
 
-            myMail.Body = $"Nightly Job sucessfully generated stock files on {DateTime.Now}";
+            myMail.Body = $"Nightly Job sucessfully generated stock files on {DateTime.Now} for {type}";
             myMail.BodyEncoding = Encoding.UTF8;
 
             myMail.IsBodyHtml = true;
             return myMail;
         }
 
-        private MailMessage BuildErrorEmail()
+        private MailMessage BuildErrorEmail(string type)
         {
             MailMessage myMail = new MailMessage();
             myMail.To.Add(new MailAddress("vandershannon@gmail.com", "Conor"));
             myMail.To.Add(new MailAddress("david@cordners.co.uk", "David"));
             myMail.From = new MailAddress("nightly@job.com", "Nightly Job");
 
-            myMail.Subject = "Nightly Job: Error Generated";
+            myMail.Subject = $"Nightly Job: Error Generated for {type}";
             myMail.SubjectEncoding = Encoding.UTF8;
 
-            myMail.Body = $"Nightly Job was unsucessfully generated stock files on {DateTime.Now}";
+            myMail.Body = $"Nightly Job was unsucessfully generated stock files on {DateTime.Now} for {type}";
             myMail.BodyEncoding = Encoding.UTF8;
 
             myMail.IsBodyHtml = true;

@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.OleDb;
-using System.IO;
 using System.Linq;
 using System.Text;
 using ScheduleStockManager;
@@ -14,36 +12,19 @@ namespace StockCSV
     public class Database : Job
     {
         private readonly LogWriter _logger = new LogWriter();
-        private List<string> doneList = new List<string>();
-        private DataSet SeasonalData;
         private static DataSet REMTable;
 
         public Database()
         {
-            SeasonalData = Connection(null, SqlQueries.FetchLatestSeaosn);
             REMTable = Connection(null, SqlQueries.FetchREM);
         }
 
-
-        public override void InsertIntoDescriptions(string sku)
-        {
-            var doesSKUExist = Connection(sku, SqlQueries.DoesSKUExist);
-            if (doesSKUExist.Tables[0].Rows.Count == 0)
-            {
-                Console.WriteLine("Adding new SKU to DESC Table: " + sku);
-                Connection(sku, SqlQueries.InsertSKU);
-            }           
-        }
-
-        public override string DoJob(DataRow dr, DataSet dt, List<string> t2TreFs)
+        public string GenerateSimples(DataRow dr, DataSet dt)
         {
             try
             {
                 var csv = new StringBuilder();
                 var actualStock = "0";
-                var inStockFlag = false;
-                var groupSkus = "";
-                var empty = "";
 
                 _logger.LogWrite("Working....");
 
@@ -71,80 +52,31 @@ namespace StockCSV
                                 }
 
                                 isStock = SantizeStock(actualStock) == "0" ? 0 : 1;
-
-                                inStockFlag = true;
                             }
                             else
                             {
                                 isStock = 0;
                             }
 
-                            var colourCollection = GetAllColoursForSku(dr["NewStyle"].ToString().Substring(0,6), t2TreFs);
-
-                            var append = (1000 + i).ToString();
-                            groupSkus = dr["NewStyle"].ToString();
-                            var groupSkus2 = dr["NewStyle"] + append.Substring(1, 3);
-
-                            var eanRow = dt.Tables[0].Select("T2T_CODE = '" + groupSkus2 + "'").FirstOrDefault();
-                            var eanCode = "";
-                            if (eanRow != null)
+                            var sku = GetSKU(dr, i);
+                            var nightly = new NightlySimples()
                             {
-                                eanCode = eanRow["EAN_CODE"].ToString();
-                            }
-
-                            DateTime date = DateTime.Now;
-                            if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
-                            {
-                                _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
-                            }
-                            else
-                            {
-                                date = Convert.ToDateTime(dr["LASTDELV"]);
-                            }
-
-                            var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
-                            var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
-
-                            var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
-
-                            var newLine = $"{"\"" + groupSkus2 + "\""},{"\"" + actualStock + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""}" +
-                                 $",{"\"" + RemoveLineEndings(eanCode) + "\""},{"\"" + dr["SELL"] + "\""}" +
-                                 $",{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"1\""}";
-                            // {"\"" + (isStock == 1 ? "2" : "4") + "\""}
-                            csv.AppendLine(newLine);
+                                SKU = sku,
+                                StockLevel = actualStock,
+                                IsInStock = isStock,
+                                SortDate = GetLastDevlieryDate(dr),
+                                EANCode = GetEANCode(dt, sku),
+                                RRP = dr["SELL"].ToString(),
+                                Season = dr["USER1"].ToString(),
+                                Rem1 = GetREMValue(dr["REM"].ToString()),
+                                Rem2 = GetREMValue(dr["REM2"].ToString())
+                            };
+                            csv.AppendLine(nightly.ToString());
 
                         }
                         actualStock = "0";
                     }
                 }
-                //doneList.Add(dr["NewStyle"].ToString());
-
-
-                //isStock = inStockFlag ? 1 : 0;
-                //if (!string.IsNullOrEmpty(dr["NewStyle"].ToString()))
-                //{
-
-
-                //    DateTime date = DateTime.Now;
-                //    if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
-                //    {
-                //        _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
-                //    }
-                //    else
-                //    {
-                //        date = Convert.ToDateTime(dr["LASTDELV"]);
-                //    }
-
-                //    var rem1 = "\"" + GetREMValue(dr["REM"].ToString()) + "\"";
-                //    var rem2 = "\"" + GetREMValue(dr["REM2"].ToString()) + "\"";
-
-                //    var year = UpdateDeliveryDate(dr["USER1"].ToString(), date).ToString("yyyy/MM/dd");
-                //    if (groupSkus != "")
-                //    {
-                //        var newLine2 = $"{"\"" + groupSkus + "\""},{"\"" + SantizeStock(actualStock) + "\""},{"\"" + isStock + "\""},{"\"" + year + "\""},{"\"" + empty + "\""},{"\"" + dr["SELL"] + "\""},{"\"" + dr["USER1"] + "\""},{rem2},{rem1},{"\"" + (isStock == 1 ? "4" : "2") + "\""}";
-                //        csv.AppendLine(newLine2);
-                //    }                    
-                //}
 
                 return csv.ToString();
             }
@@ -154,16 +86,93 @@ namespace StockCSV
                 _logger.LogWrite(e.Message + e.StackTrace);
                 throw;
             }
-            finally
-            {
+        }
 
+        public string GenerateConfigurables(DataRow dr)
+        {
+            try
+            {
+                var csv = new StringBuilder();
+                _logger.LogWrite("Working....");
+                var nightly = new NightlyConfigurables()
+                {
+                    SKU = GetConfigurableSKU(dr),
+                    SortDate = GetLastDevlieryDate(dr),
+                    UDef2 = dr["MasterSubDept"].ToString(),
+                    Type = dr["MasterDept"].ToString()
+                };
+                csv.AppendLine(nightly.ToString());
+                return csv.ToString();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+                _logger.LogWrite(e.Message + e.StackTrace);
+                throw;
             }
         }
 
-        private List<string> GetAllColoursForSku(string sku, List<string> t2TreFs)
+        public string GenerateEuro(DataRow dr, decimal conversion_rate)
         {
-            var colours = t2TreFs.Where(x => x.Contains(sku)).ToList();
-            return colours;
+            var csv = new StringBuilder();
+            var minsize = Convert.ToInt32(dr["MINSIZE"]);
+            var maxsize = Convert.ToInt32(dr["MAXSIZE"]);
+            for (var i = minsize; i <= maxsize; i++)
+            {
+                var gbp = Convert.ToDecimal(dr["SELL"].ToString());
+                var euros = gbp * conversion_rate;
+                var decimalPart = euros - Math.Truncate(euros);
+                if ((decimalPart * 100) < 50)
+                {
+                    euros++;
+                }
+                var euroModel = new EuroModel()
+                {
+                    RRP = Math.Round(euros).ToString(),
+                    SKU = GetSKU(dr, i),
+                    SterlingRRP = gbp.ToString()
+                };
+                csv.AppendLine(euroModel.ToString());
+            }
+            return csv.ToString();
+        }
+
+        private static string GetSKU(DataRow dr, int i)
+        {
+            var append = (1000 + i).ToString();
+            return dr["NewStyle"] + append.Substring(1, 3);
+        }
+
+        private static string GetConfigurableSKU(DataRow dr)
+        {
+            return dr["NewStyle"].ToString();
+        }
+
+        private DateTime GetLastDevlieryDate(DataRow dr)
+        {
+            DateTime date = DateTime.Now;
+            if (String.IsNullOrEmpty(dr["LASTDELV"].ToString()))
+            {
+                _logger.LogWrite("Setting default date for: " + dr["NewStyle"].ToString());
+            }
+            else
+            {
+                date = Convert.ToDateTime(dr["LASTDELV"]);
+            }
+
+            return date;
+        }
+
+        private static string GetEANCode(DataSet dt, string groupSkus2)
+        {
+            var eanRow = dt.Tables[0].Select("T2T_CODE = '" + groupSkus2 + "'").FirstOrDefault();
+            var eanCode = "";
+            if (eanRow != null)
+            {
+                eanCode = RemoveLineEndings(eanRow["EAN_CODE"].ToString());
+            }
+
+            return eanCode;
         }
 
         private string SantizeStock(string stock)
@@ -176,71 +185,7 @@ namespace StockCSV
             return stock;
         }
 
-        private DateTime UpdateDeliveryDate(string season, DateTime date)
-        {
-            try
-            {
-                var topSeason = System.Configuration.ConfigurationManager.AppSettings["TopSeason"];
-                var secondSeason = System.Configuration.ConfigurationManager.AppSettings["SecondSeason"];
-                var thirdSeason = System.Configuration.ConfigurationManager.AppSettings["ThirdSeason"];
-                var foruthSeason = System.Configuration.ConfigurationManager.AppSettings["FourthSeason"];
-
-
-                if (topSeason == season)
-                {
-                    date = new DateTime(2026, 06, 01);
-                }
-
-                if (secondSeason == season)
-                {
-                    date = new DateTime(2025, 06, 01);
-                }
-
-                if (thirdSeason == season)
-                {
-                    date = new DateTime(2024, 06, 01);
-                }
-
-                if (foruthSeason == season)
-                {
-                    date = new DateTime(2023, 06, 01);
-                }
-
-
-
-                //if (SeasonalData.Tables[0].Rows[i]["TOPPAGE"].ToString() == "true")
-                //{
-                //    return date.AddYears(delimiter - Convert.ToInt32(SeasonalData.Tables[0].Rows[i]["ID"]));
-                //}                            
-                //else if (SeasonalData.Tables[0].Rows[i]["BOTTOMPAGE"].ToString() == "true")
-                //{
-                //    return date.AddYears(-10);
-                //}
-                
-                
-                return date;
-            }
-            catch(Exception e)
-            {
-                new LogWriter().LogWrite(e.Message);
-                new LogWriter().LogWrite(e.StackTrace);
-            }
-            return date;
-        }
-
-        public override void DoCleanup(string season)
-        {
-            Console.WriteLine($"The Clean Job thread started successfully.");
-            new LogWriter("The Clean Job thread started successfully");
-            Console.WriteLine("Clean up: removing exisiting stock.csv");
-
-            foreach (string file in Directory.EnumerateFiles(System.Configuration.ConfigurationManager.AppSettings["OutputPath"], "*.csv"))
-            {
-                File.Delete(file);
-            }
-        }
-
-        public override DataSet Connection(string reff, string query)
+        public DataSet Connection(string reff, string query)
         {
             var dataset = new DataSet();
             using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
@@ -270,7 +215,7 @@ namespace StockCSV
             return dataset;
         }
 
-        public override DataSet Connection(string reff, string lastmonth, string lastweek, string yesertday, string query)
+        public DataSet Connection(string reff, string lastmonth, string lastweek, string yesertday, string query)
         {
             var dataset = new DataSet();
             using (var connectionHandler = new OleDbConnection(System.Configuration.ConfigurationManager.AppSettings["AccessConnectionString"]))
@@ -291,27 +236,6 @@ namespace StockCSV
             return dataset;
         }
 
-
-        public override bool IsRepeatable()
-        {
-            return true;
-        }
-
-        public override int GetRepetitionIntervalTime()
-        {
-            return 5000;
-        }
-
-        public override TimeSpan GetStartTime()
-        {
-            return TimeSpan.Parse(System.Configuration.ConfigurationManager.AppSettings["StartTime"]);
-        }
-
-        public override TimeSpan GetEndTime()
-        {
-            return TimeSpan.Parse(System.Configuration.ConfigurationManager.AppSettings["EndTime"]);
-        }
-
         private static string GetREMValue(string rem)
         {
             if (!string.IsNullOrEmpty(rem))
@@ -327,7 +251,7 @@ namespace StockCSV
 
         public static string RemoveLineEndings(string value)
         {
-            if (String.IsNullOrEmpty(value))
+            if (string.IsNullOrEmpty(value))
             {
                 return value;
             }
