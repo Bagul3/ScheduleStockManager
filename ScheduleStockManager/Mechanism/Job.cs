@@ -133,7 +133,7 @@ namespace ScheduleStockManager.Mechanism
                         exhange_rate += 0.01m;
                     }
                 }
-                
+                exhange_rate += 0.01m;
                 return Math.Round(exhange_rate, 2);
             }
             catch(Exception ex)
@@ -151,7 +151,7 @@ namespace ScheduleStockManager.Mechanism
 
         private void BuildParent(List<string> skuFromOnline, DataSet allcordnersStock, Database database)
         {
-            var headers = $"{"\"" + "sku" + "\""},{"\"" + "sort_date" + "\""},{"\"" + "udef2" + "\""},{"\"" + "type" + "\""}";
+            var headers = $"{"\"" + "sku" + "\""},{"\"" + "sort_date" + "\""},{"\"" + "udef2" + "\""},{"\"" + "type" + "\""},{"\"" + "REM1" + "\""},{"\"" + "REM2" + "\""}";
             var stopwatch = new Stopwatch();
             stopwatch.Start();
             var time = GetTimestamp(DateTime.Now);
@@ -172,7 +172,7 @@ namespace ScheduleStockManager.Mechanism
 
         private void BuildSimples(List<string> skuFromOnline, DataSet allcordnersStock, Database database)
         {
-            var headers = $"{"\"" + "sku" + "\""},{"\"" + "qty" + "\""},{"\"" + "is_in_stock" + "\""},{"\"" + "sort_date" + "\""},{"\"" + "ean" + "\""},{"\"" + "price" + "\""},{"\"" + "season" + "\""},{"\"" + "rem1" + "\""},{"\"" + "rem2" + "\""},{"\"" + "visibility" + "\""}";            
+            var headers = $"{"\"" + "sku" + "\""},{"\"" + "qty" + "\""},{"\"" + "is_in_stock" + "\""},{"\"" + "ean" + "\""},{"\"" + "price" + "\""},{"\"" + "season" + "\""},{"\"" + "visibility" + "\""}";            
 
             Console.WriteLine("Gathering EAN Codes");
             var eanDataset = database.Connection(null, SqlQueries.GetEanCodes);                        

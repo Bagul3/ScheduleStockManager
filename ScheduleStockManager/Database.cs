@@ -64,12 +64,9 @@ namespace StockCSV
                                 SKU = sku,
                                 StockLevel = actualStock,
                                 IsInStock = isStock,
-                                SortDate = GetLastDevlieryDate(dr),
                                 EANCode = GetEANCode(dt, sku),
                                 RRP = dr["SELL"].ToString(),
-                                Season = dr["USER1"].ToString(),
-                                Rem1 = GetREMValue(dr["REM"].ToString()),
-                                Rem2 = GetREMValue(dr["REM2"].ToString())
+                                Season = dr["USER1"].ToString()                                
                             };
                             csv.AppendLine(nightly.ToString());
 
@@ -99,7 +96,9 @@ namespace StockCSV
                     SKU = GetConfigurableSKU(dr),
                     SortDate = GetLastDevlieryDate(dr),
                     UDef2 = dr["MasterSubDept"].ToString(),
-                    Type = dr["MasterDept"].ToString()
+                    Type = dr["MasterDept"].ToString(),
+                    REM1 = GetREMValue(dr["REM"].ToString()),
+                    REM2 = GetREMValue(dr["REM2"].ToString())
                 };
                 csv.AppendLine(nightly.ToString());
                 return csv.ToString();
@@ -117,6 +116,7 @@ namespace StockCSV
             var csv = new StringBuilder();
             var minsize = Convert.ToInt32(dr["MINSIZE"]);
             var maxsize = Convert.ToInt32(dr["MAXSIZE"]);
+            var rounding = true;
             for (var i = minsize; i <= maxsize; i++)
             {
                 var gbp = Convert.ToDecimal(dr["SELL"].ToString());
@@ -124,15 +124,24 @@ namespace StockCSV
                 var decimalPart = euros - Math.Truncate(euros);
                 if ((decimalPart * 100) < 50)
                 {
-                    euros++;
+                    if (gbp < 20)
+                    {
+                        var additional = 0.5m - decimalPart;
+                        euros += additional;
+                        rounding = false;
+                    }
+                    else
+                        euros++;
+                    
                 }
                 var euroModel = new EuroModel()
                 {
-                    RRP = Math.Round(euros).ToString(),
+                    RRP = rounding ? Math.Round(euros).ToString() : euros.ToString(),
                     SKU = GetSKU(dr, i),
                     SterlingRRP = gbp.ToString()
                 };
                 csv.AppendLine(euroModel.ToString());
+                rounding = true;
             }
             return csv.ToString();
         }
