@@ -11,11 +11,24 @@ namespace ScheduleStockManager.Models
         public string EANCode { get; set; }
         public string RRP { get; set; }
 
+        public string Euro { get; set; }
+
+        public string USD { get; set; }
+
+        public string AUD { get; set; }
+
         public override string ToString()
         {
-            return $"{"\"" + SKU + "\""},{"\"" + StockLevel + "\""},{"\"" + IsInStock + "\""}," +
-                                 $"{"\"" + EANCode + "\""},{"\"" + RRP + "\""}," +
-                                 $"{"\"" + Season + "\""},{"\"1\""}";
+            return $"{"\"" + SKU + "\""}," +
+                    $"{"\"" + StockLevel + "\""}," +
+                    $"{"\"" + IsInStock + "\""}," +
+                    $"{"\"" + EANCode + "\""}," +
+                    $"{"\"" + RRP + "\""}," +
+                    $"{"\"" + Season + "\""}," +
+                    $"{"\"1\""}," +
+                    $"{"\"" + Euro + "\""}," +
+                    $"{"\"" + USD + "\""}," +
+                    $"{"\"" + AUD + "\""}";
         }
     }
 }

@@ -13,7 +13,7 @@
 									(SELECT Right(t.[KEY],3) AS NewCol, t.F1 AS MasterColour, Left(t.[KEY],3) AS Col, t.F7 
 								FROM T2_LOOK t
 								WHERE (Left(t.[KEY],3))='COL') as Colour ON T2_BRA.COLOUR = Colour.NewCol) INNER JOIN [DESC] ON [T2_BRA].[REF] = [DESC].SKU)
-                                    WHERE T2_BRA.BRANCH in ('A','G')
+                                    WHERE T2_BRA.BRANCH in ('T','G')
 									GROUP BY ([T2_BRA].[REF] + [F7]),T2_HEAD.REF, T2_HEAD.LASTDELV, T2_HEAD.SELL, T2_HEAD.REM, T2_HEAD.REM2, T2_HEAD.USER1, T2_HEAD.USER2, T2_HEAD.MINSIZE, T2_HEAD.MAXSIZE";
 
 		public static string StockQueryALL => @"SELECT ([T2_BRA].[REF] + [F7]) AS NEWSTYLE, Suppliers.MasterSupplier, Dept.MasterDept, Colour.MasterColour, Colour.F7, T2_HEAD.SHORT, T2_HEAD.MINSIZE, T2_HEAD.MAXSIZE,
@@ -47,7 +47,7 @@ WHERE (((Left([T2_LOOK]![KEY],3))='CAT'))
 									(SELECT Right(T2_LOOK.[KEY],3) AS SubDeptCode, T2_LOOK.F1 AS MasterSubDept
 										FROM T2_LOOK
 											WHERE (Left(T2_LOOK.[KEY],3))='US2') AS SubDept ON T2_HEAD.USER2 = SubDept.SubDeptCode)
-									WHERE T2_BRA.BRANCH in ('A','G')
+									WHERE T2_BRA.BRANCH in ('T','G')
 									GROUP BY ([T2_BRA].[REF] + [F7]), Suppliers.MasterSupplier, Dept.MasterDept, Colour.MasterColour, Colour.F7, T2_HEAD.LASTDELV,
 									 T2_HEAD.SHORT, T2_HEAD.[DESC], T2_HEAD.[GROUP], T2_HEAD.STYPE, T2_HEAD.SIZERANGE, T2_HEAD.SUPPLIER, T2_HEAD.SUPPREF,
 									  T2_HEAD.VAT, T2_HEAD.BASESELL, T2_HEAD.USER1,T2_HEAD.REM, T2_HEAD.REM2, T2_HEAD.MINSIZE, T2_HEAD.MAXSIZE,
@@ -59,7 +59,19 @@ WHERE (((Left([T2_LOOK]![KEY],3))='CAT'))
         
         public static string InsertSKU => @"INSERT INTO [DESC] (SKU) VALUES (?)";
 
-        public static string DoesSKUExist => @"SELECT SKU FROM [DESC] WHERE SKU = (?)";
+		public static string InsertEuro => @"INSERT INTO [EURO] (PRICE) VALUES (?)";
+
+		public static string InsertUSD => @"INSERT INTO [USD] (PRICE) VALUES (?)";
+
+		public static string InsertAUD => @"INSERT INTO [AUD] (PRICE) VALUES (?)";
+
+		public static string DeleteEuro => @"DELETE FROM [EURO]";
+
+		public static string DeleteUSD => @"DELETE FROM [USD]";
+
+		public static string DeleteAUD => @"DELETE FROM [AUD]";
+
+		public static string DoesSKUExist => @"SELECT SKU FROM [DESC] WHERE SKU = (?)";
 
         public static string DeleteSKUs => @"DELETE FROM [DESC]";
 
@@ -70,6 +82,12 @@ WHERE (((Left([T2_LOOK]![KEY],3))='CAT'))
 		public static string FetchREM => @"SELECT * FROM [REM]";
 
 		public static string FetchSeasons => @"SELECT USER1 FROM [T2_HEAD]";
+
+		public static string FetchEUROPrice => @"SELECT [PRICE] FROM [EURO]";
+
+		public static string FetchUSDPrice => @"SELECT [PRICE] FROM [USD]";
+
+		public static string FetchAUDPrice => @"SELECT [PRICE] FROM [AUD]";
 
 		public static string SingleSku =>
 			@"SELECT ([T2_BRA].[REF] + [F7]) AS NEWSTYLE, Suppliers.MasterSupplier, Dept.MasterDept, Colour.MasterColour, Colour.F7, T2_HEAD.SHORT, T2_HEAD.REM, T2_HEAD.REM2, T2_HEAD.USER1,

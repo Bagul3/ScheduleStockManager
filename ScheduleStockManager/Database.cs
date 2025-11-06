@@ -19,18 +19,17 @@ namespace StockCSV
             REMTable = Connection(null, SqlQueries.FetchREM);
         }
 
-        public string GenerateSimples(DataRow dr, DataSet dt)
+        public string GenerateSimples(DataRow dr, DataSet dt, decimal conversion_rate, decimal conversion_rate_usd, decimal conversion_rate_aud)
         {
             try
             {
+                _logger.LogWrite("Working....");
                 var csv = new StringBuilder();
                 var actualStock = "0";
-
-                _logger.LogWrite("Working....");
-
                 var isStock = 0;
                 var minsize = Convert.ToInt32(dr["MINSIZE"]);
                 var maxsize = Convert.ToInt32(dr["MAXSIZE"]);
+
                 for (var i = minsize; i <= maxsize; i++)
                 {
                     if (!string.IsNullOrEmpty(dr["QTY" + i].ToString()))
@@ -66,7 +65,10 @@ namespace StockCSV
                                 IsInStock = isStock,
                                 EANCode = GetEANCode(dt, sku),
                                 RRP = dr["SELL"].ToString(),
-                                Season = dr["USER1"].ToString()                                
+                                Season = dr["USER1"].ToString(),
+                                Euro = GenerateRRPForOtherCurrency(dr, conversion_rate),
+                                USD = GenerateRRPForOtherCurrency(dr, conversion_rate_usd),
+                                AUD = GenerateRRPForOtherCurrency(dr, conversion_rate_aud)
                             };
                             csv.AppendLine(nightly.ToString());
 
@@ -83,6 +85,27 @@ namespace StockCSV
                 _logger.LogWrite(e.Message + e.StackTrace);
                 throw;
             }
+        }
+
+        private string GenerateRRPForOtherCurrency(DataRow dr, decimal conversion_rate)
+        {
+            var rounding = true;
+            var gbp = Convert.ToDecimal(dr["SELL"].ToString());
+            var euros = gbp * conversion_rate;
+            var decimalPart = euros - Math.Truncate(euros);
+            if ((decimalPart * 100) < 50)
+            {
+                if (gbp < 20)
+                {
+                    var additional = 0.5m - decimalPart;
+                    euros += additional;
+                    rounding = false;
+                }
+                else
+                    euros++;
+
+            }
+            return rounding ? Math.Round(euros).ToString() : euros.ToString();
         }
 
         public string GenerateConfigurables(DataRow dr)
